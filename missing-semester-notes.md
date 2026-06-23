@@ -225,3 +225,149 @@ The shell is highly customizable, though setup varies between operating systems 
 * **Configuration Files:** Changes made directly in the terminal (like `export PATH=...`) are lost when the session ends. To make them permanent, add them to your shell's configuration file (`~/.bashrc`, `~/.bash_profile`, or `~/.zshrc`).
 * **Dotfiles:** It is best practice to store your configuration files in a version-controlled folder (like a Git repository) and use "symlinks" to point your operating system to them. This makes setting up a new computer frictionless.
 * **Plugins:** Frameworks and independent plugins can add syntax highlighting, auto-completion, rich Git integrations in your prompt (`PS1`), and fuzzy-finding for your command history (e.g., `fzf` mapped to `Ctrl+R`).
+
+### Topic: Development Environment and Tools
+
+These notes summarize the concepts, tools, and workflows of a modern software development environment, with a deep dive into Vim, Language Servers, and AI-powered coding tools.
+
+---
+
+## Development Environments
+
+A development environment is the set of tools you use to write, test, and debug software. They generally fall into two categories:
+
+* **Terminal-based Environments:** Command-line configurations (e.g., combining Tmux, a shell, and a text editor like Vim). These are highly customizable and essential when SSH-ing into remote machines where graphical software cannot easily be installed.
+* **Integrated Development Environments (IDEs):** Graphical applications (e.g., VS Code, Cursor) that consolidate text editing, file management, terminal access, and advanced features (like AI and debugging) into a single unified interface.
+
+---
+
+## Vim & Modal Editing
+
+When writing code, you rarely write top-to-bottom like an essay. You jump around, read snippets, fix bugs, and write small blocks. **Vim** is a text editor designed explicitly for this non-linear workflow.
+
+Vim's core philosophy is that switching between the keyboard and mouse is slow. Instead, it turns text editing into a "programming language" where you use keystrokes to navigate and manipulate text rapidly without your hands leaving the home row.
+
+### The Modes of Vim
+
+Vim is a **modal editor**, meaning the same keys do different things depending on which mode you are in.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Normal
+    Normal --> Insert : press i, a, o, O
+    Insert --> Normal : press ESC
+    Normal --> Visual : press v, V, Ctrl+V
+    Visual --> Normal : press ESC
+    Normal --> Command : press :
+    Command --> Normal : press Enter / ESC
+
+```
+
+* **Normal Mode (Default):** For navigating the file and manipulating text. You cannot type standard text here.
+* **Insert Mode (`i`):** Behaves like a standard text editor. What you type goes into the file.
+* **Visual Mode (`v`, `V`, `Ctrl+V`):** For selecting text (characters, lines, or rectangular blocks).
+* **Replace Mode (`R`):** For overwriting text.
+* **Command Mode (`:`):** For executing editor commands (saving, quitting, searching).
+
+### The Vim "Grammar"
+
+In Normal mode, Vim acts like a language consisting of **Movements**, **Counts**, **Edits**, and **Modifiers**. You combine these to perform complex actions instantly.
+
+#### Basic Movements
+
+| Key | Action | Key | Action |
+| --- | --- | --- | --- |
+| `h` / `j` / `k` / `l` | Left / Down / Up / Right | `gg` / `G` | Top of file / Bottom of file |
+| `w` / `b` | Forward a word / Back a word | `0` / `$` | Start of line / End of line |
+| `f<char>` | Find next instance of `<char>` | `%` | Jump to matching bracket/parenthesis |
+
+#### Editing Commands
+
+| Key | Action |
+| --- | --- |
+| `o` / `O` | Open a new line below / above and enter Insert mode |
+| `d` | Delete (must be combined with a movement, e.g., `dw` deletes a word) |
+| `c` | Change (deletes and immediately enters Insert mode) |
+| `u` | Undo |
+
+#### Composition (Verbs + Modifiers + Nouns)
+
+The true power of Vim is chaining these together: `[Count] + [Operator/Edit] + [Modifier] + [Movement/Noun]`.
+
+* **Counts:** `10j` moves down 10 lines. `5w` jumps forward 5 words.
+* **Modifiers:** `i` (inside) and `a` (around).
+* **Example 1:** `dj` deletes the current line and the line below it.
+* **Example 2:** `ci(` stands for **C**hange **I**nside **(**. It deletes all text inside the current set of parentheses and drops you into Insert mode to type the replacement.
+
+> **Note:** Even if you don't use the standalone Vim software, Vim keybindings are supported via extensions in almost every modern IDE (VS Code, JetBrains, Emacs), allowing you to bring this speed to any environment.
+
+---
+
+## Code Intelligence and Language Servers
+
+Modern IDEs offer rich features like autocomplete, jump to definition, inline error checking, and auto-formatting. Historically, an editor had to build custom support for every single language.
+
+The **Language Server Protocol (LSP)** changed this by standardizing how editors and language intelligence tools communicate. This turns an $M \times N$ integration problem (M editors supporting N languages) into an $M + N$ problem.
+
+```mermaid
+graph LR
+    subgraph IDEs / Editors
+        E1[VS Code]
+        E2[Vim / Neovim]
+        E3[Emacs]
+    end
+
+    LSP((Language Server<br>Protocol))
+
+    subgraph Language Servers
+        S1[Python Server]
+        S2[Rust Server]
+        S3[Go Server]
+    end
+
+    E1 <--> LSP
+    E2 <--> LSP
+    E3 <--> LSP
+    LSP <--> S1
+    LSP <--> S2
+    LSP <--> S3
+
+```
+
+By installing the appropriate Language Server for your language (e.g., Python's `pylsp` or Rust's `rust-analyzer`), your editor gains semantic understanding of your code, enabling:
+
+* **Inline Documentation:** Hovering over functions to see their docstrings.
+* **Navigation:** Finding all references of a variable or jumping to a struct's definition.
+* **Quality of Life:** Auto-importing missing modules as you type and highlighting syntax errors before compilation.
+
+---
+
+## AI-Powered Development
+
+Large Language Models (LLMs) have fundamentally changed how code is written. Tools like GitHub Copilot and Cursor integrate directly into the IDE to assist with writing and refactoring.
+
+### Three Modes of AI Interaction
+
+1. **Autocomplete (Passive):**
+* As you type, the AI suggests code past your cursor (often grayed out). You press `Tab` to accept.
+* **Steering:** You can guide the autocomplete by writing comments or docstrings. Writing a clear, descriptive docstring (e.g., *"Extract all links from the given markdown document"*) results in much more accurate and useful auto-completions than vague inline comments.
+
+
+2. **Inline Chat (Targeted):**
+* You highlight a specific block of code and bring up a prompt (e.g., `Cmd+I` in VS Code).
+* You give a command like *"Remove third-party libraries"* or *"Refactor this to use a switch statement"*.
+* The AI proposes a diff (red for deletions, green for additions) that you can review and accept.
+
+
+3. **Coding Agents (Conversational/Autonomous):**
+* A chat interface with broader context about your codebase.
+* You can ask it to explain code, brainstorm architectures, or find bugs. It operates more like an interactive pair-programmer.
+
+
+
+### Best Practices for AI Tools
+
+* **Review Everything:** LLMs are probabilistic token-predictors, not logic engines. They will confidently produce code that looks correct but contains subtle bugs or hallucinates non-existent methods.
+* **Find the Right Abstraction Level:** AI tools excel at boilerplate and well-documented algorithmic tasks. If a task is too complex, the AI will fail. Learn to gauge what the AI is capable of handling, and delegate accordingly.
+* **Privacy Note:** Cloud-based AI tools send your code to external servers. For highly sensitive code, check the privacy settings of your tool (e.g., disabling data retention) or look into local models, though local models currently offer less capability.
