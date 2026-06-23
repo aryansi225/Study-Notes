@@ -115,3 +115,113 @@ You can save shell commands into a text file to create reproducible scripts. Bas
 2. Write your commands.
 3. Add execution permissions using `chmod +x script.sh`.
 4. Execute it explicitly from the current directory using `./script.sh`.
+
+
+### Topic: The Command Line Environment
+
+These notes summarize the core concepts of the command line environment, focusing on how programs interact, how to operate on remote machines, and how to customize your workspace.
+
+---
+
+## Program Inputs: Arguments & Globbing
+
+Unlike traditional programming languages where inputs are explicitly passed into defined functions, shell programs receive inputs primarily as strings via arguments.
+
+* **Flags:** Arguments starting with a dash (`-`) or double dash (`--`) alter a program's default behavior. Single-letter flags can often be combined (e.g., `ls -la` is equivalent to `ls -l -a`).
+* **Multiple Arguments:** Many programs accept an arbitrary number of arguments to apply the same operation across multiple targets (e.g., `mkdir dir1 dir2 dir3`).
+* **Globbing:** The shell evaluates pattern matching *before* passing the input to the program. For example, if you run `touch *.py`, the shell expands `*.py` into a list of all matching files in the directory and passes that entire list to `touch`.
+
+---
+
+## Streams and Pipelines
+
+Programs communicate via continuous data streams. When you pipe commands together using `|`, the programs run in parallel, instantly passing data down the chain as it gets produced.
+
+* **Standard Input (stdin):** How a program reads data. Often represented by a lone dash `-` in commands if the program expects a file but you want it to read from the pipeline instead.
+* **Standard Output (stdout):** Where a program sends its successful output. Can be redirected to a file using `>`.
+* **Standard Error (stderr):** A separate stream specifically for error messages. This ensures errors are not accidentally processed by the next program in a pipeline or written to a standard output file.
+* **`/dev/null`:** A special file that acts as a black hole. Writing standard output or error streams here simply discards the data.
+
+```mermaid
+graph LR
+    A[Keyboard / File / Command] -- Standard Input --> B(Program)
+    B -- Standard Output --> C[Terminal / File / Next Command]
+    B -- Standard Error --> D[Terminal / Error Log]
+
+```
+
+---
+
+## Environment Variables & Return Codes
+
+Variables in the shell dictate how programs behave and how they find information.
+
+* **Syntax:** Define variables without spaces (`foo=bar`). Access them with a dollar sign (`$foo`).
+* **Local vs. Exported:** By default, variables only exist in the current shell session. Use `export debug=1` to ensure that any child processes spawned by the shell also inherit the variable.
+* **Common Variables:** `$HOME` defines the user's home directory. `$TZ` defines the time zone. `$PATH` is a list of directories the shell searches to find executable commands.
+
+**Return Codes**
+Every program exits with a numerical return code (exit status) indicating success or failure.
+
+* **`0`:** Success.
+* **Non-zero (e.g., 1, 2):** Failure or error.
+* **Control Flow:** The `&&` (AND) operator runs the next command *only* if the previous returned `0`. The `||` (OR) operator runs the next command *only* if the previous failed.
+
+---
+
+## Signals
+
+Signals are software interrupts sent to a running program. A program can be programmed to catch a signal (e.g., to cleanly delete temporary files before closing) or ignore it completely.
+
+| Keybind / Command | Signal | Description |
+| --- | --- | --- |
+| `Ctrl+C` | `SIGINT` | Interrupt signal. Requests the program to terminate. |
+| `Ctrl+\` | `SIGQUIT` | Quit signal. A more forceful request to terminate. |
+| `Ctrl+Z` | `SIGTSTP` | Suspend signal. Pauses the program and pushes it to the background. |
+| `kill <PID>` | Any | A command used to send arbitrary signals to a specific Process ID. |
+
+---
+
+## Remote Machines & SSH
+
+The Secure Shell (SSH) protocol allows you to control remote computers as if you were sitting in front of them.
+
+* **Connecting:** `ssh username@server_address`
+* **Public Key Authentication:** Instead of typing passwords, use cryptographic keys. Generate a pair using `ssh-keygen`.
+* **Public Key:** Shared with the server (e.g., using `ssh-copy-id`). It identifies you.
+* **Private Key:** Stays on your machine. *Never share this.* It is highly recommended to protect it with a local passphrase.
+* **Remote Execution:** You can pass a command directly through SSH (e.g., `ssh user@server ls -l`). The command executes remotely, but the standard output streams back to your local terminal.
+* **Copying Files:** Use Secure Copy (`scp local_file user@server:remote_path`) to transfer files over the SSH protocol.
+
+```mermaid
+sequenceDiagram
+    participant Client (Local)
+    participant Server (Remote)
+    Client->>Server: Connection Request
+    Server->>Client: Send Challenge (Encrypted with Public Key)
+    Client->>Client: Decrypt Challenge (Using Private Key)
+    Client->>Server: Send Decrypted Response
+    Server->>Server: Verify Response
+    Server->>Client: Access Granted
+
+```
+
+---
+
+## Terminal Multiplexers
+
+When you disconnect from an SSH session, the server sends a `SIGHUP` (hangup) signal, terminating all your running programs. Terminal multiplexers (like `tmux`) prevent this by keeping a persistent session alive on the remote server.
+
+* **Windows & Panes:** Allow you to run multiple terminal tabs (windows) and split screens (panes) within a single SSH connection.
+* **Detaching (`Ctrl+b`, `d`):** Leaves the multiplexer running in the background. You can disconnect from SSH, go home, reconnect, and run `tmux attach` to pick up exactly where you left off.
+
+---
+
+## Customizing Your Environment
+
+The shell is highly customizable, though setup varies between operating systems and specific shell programs (Bash vs. Zsh).
+
+* **Package Managers:** Use tools like `brew` (macOS) or `apt` (Debian/Ubuntu) to install missing programs (e.g., `tmux`, `ripgrep`).
+* **Configuration Files:** Changes made directly in the terminal (like `export PATH=...`) are lost when the session ends. To make them permanent, add them to your shell's configuration file (`~/.bashrc`, `~/.bash_profile`, or `~/.zshrc`).
+* **Dotfiles:** It is best practice to store your configuration files in a version-controlled folder (like a Git repository) and use "symlinks" to point your operating system to them. This makes setting up a new computer frictionless.
+* **Plugins:** Frameworks and independent plugins can add syntax highlighting, auto-completion, rich Git integrations in your prompt (`PS1`), and fuzzy-finding for your command history (e.g., `fzf` mapped to `Ctrl+R`).
