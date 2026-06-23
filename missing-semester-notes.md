@@ -841,3 +841,118 @@ To execute a heavy sub-task (e.g., fetching a $100\text{MB}$ web payload to extr
 2. **The "Yes-Man" Trap:** LLMs are fine-tuned to be agreeable. If you look at broken code and say *"Is this right?"*, it will frequently reply: *"You are entirely right, my apologies, here is the fix:"* and hand you the exact same broken logic rearranged.
 3. **The Debugging Doom Spiral:** If an agent fails a unit test 3 times in a row, **kill the process**. Left unchecked, it will begin deleting valid core logic or rewriting your unit tests to force a "Green" output.
 4. **Zero-Trust Tooling:** **Never** configure an agent to run Bash commands autonomously. Set your harness to *Auto-Approve* for file edits (which can be reverted via `git checkout`), but require *Manual Keystroke Approval* for any command that touches the shell.
+
+# Topic 8: Software Engineering Soft Skills
+
+---
+
+## The Reality of Software Engineering
+
+Being a successful software engineer is roughly **50% writing good code** and **50% communicating with others**. Technical brilliance alone is insufficient; you must master interacting with large codebases, collaborating with teams, engaging with open-source ecosystems, and continuously learning.
+
+Communication generally falls into two categories: **One-Way** (writing for future readers) and **Two-Way** (active collaboration).
+
+---
+
+## One-Way Communication
+
+One-way communication is documentation created for someone who will read it in the future—potentially months or years from now, and often that person is you.
+
+### Code Comments
+
+The most common mistake is writing comments that explain *what* the code does (which the code already shows). Good comments capture context that is impossible to parse from the code alone:
+
+* **To-Dos:** Clearly mark future work or known tech debt (`// TODO: ...`).
+* **References:** Link to papers, blog posts, or textbooks if implementing a specific algorithm.
+* **The "Why Nots":** Explain why you *didn't* do it the obvious way. If you spent two hours debugging why a standard library hash map didn't work and used a custom structure instead, document that so the next engineer doesn't revert your code and repeat your pain.
+
+### README Files
+
+A `README.md` is the landing page for your project. Keep it concise and structure it in this specific order:
+
+1. **What is this?** (Do not assume they already know).
+2. **Why should I care?** (What problem does it solve?).
+3. **How do I use it?** (Basic usage examples).
+4. **How do I install it?** (Do not put this first—users need to know if they want it before they install it).
+
+*Note: Move collaboration instructions (how to file bugs, run tests) to a separate `CONTRIBUTING.md` file.*
+
+### Git Hygiene & Commit Messages
+
+Commit messages act as a historical record. Tools like `git blame` and `git bisect` are only as useful as the commit messages behind them.
+
+**Anatomy of a great commit message:**
+
+* **Why** was this change necessary? (The problem).
+* **What alternatives** were considered?
+* **Trade-offs/Implications:** (e.g., "This optimizes runtime but increases build time by 10s").
+
+**Git Best Practices:**
+
+* **Use `git add -p`:** Do not just run `git add .` and bundle massive, unrelated changes together. Use the patch flag to selectively stage logically independent chunks into separate commits.
+* **Respect the reader's time:** Write enough to explain the context, but keep it concise so people actually read it.
+
+---
+
+## Two-Way Communication (Collaboration)
+
+### Open Source & Bug Reports
+
+Maintainer time is heavily oversubscribed. An open-source project might have a million users and only two volunteer maintainers. Your goal when filing a bug report is to save them time.
+
+```mermaid
+flowchart TD
+    A[Encounter a Bug] --> B{Did you search for duplicates?}
+    B -- No --> C[Search issue tracker]
+    B -- Yes --> D{Did you find one?}
+    C --> D
+    D -- Yes --> E[Leave a 👍 reaction. Avoid Me Too comments.]
+    D -- No --> F[Create Minimal Reproducible Example]
+    F --> G[Write Bug Report]
+    G --> H[Include: Environment context, Expected vs Actual, Steps to reproduce, and What you already tried]
+
+```
+
+* **Minimal Reproducible Example:** Strip your codebase down to the absolute bare minimum code required to trigger the bug. If you hand a maintainer a 100,000-line project, they will ignore it.
+* **Avoid "Me Too" Comments:** They create noise and spam the inboxes of everyone subscribed to the issue. Use the thumbs-up emoji instead.
+
+### Pull Requests (PRs) & Forking
+
+When you submit a PR, you are asking a maintainer to permanently adopt the responsibility of maintaining your code.
+
+* **Split up massive PRs:** If you have unrelated feature additions and formatting changes, split them into separate PRs so uncontroversial changes can be merged quickly.
+* **Forking is a last resort:** If a maintainer rejects your feature, you can fork the project. However, you are now entirely responsible for maintaining your own parallel ecosystem forever.
+
+### The Art of Code Review
+
+Code reviews are asynchronous conversations about the code, not judgments of the developer.
+
+* **Review the code, not the person:** Keep language objective.
+* **Ask questions, don't make demands:** Say *"What happens if null is passed here?"* instead of *"Handle the null case."*
+* **Make comments actionable:** Say *"Please replace these globals with a config data class so tests can run in parallel"* instead of *"Don't use globals."*
+* **Triage your feedback:** Don't leave 100 comments. Pick the most important ones. Prefix optional suggestions with `nit:` (short for nitpick) so the author knows it's non-blocking.
+* **Call out good code:** Reviews shouldn't be 100% negative. If someone wrote an elegant function, leave a comment praising it!
+
+---
+
+## Education & Asking Questions
+
+Learning how to ask effective questions is a superpower, whether you are talking to a senior engineer, posting on Stack Overflow, or prompting an LLM.
+
+1. **State your understanding first:** Tell them what you already know so they don't waste time explaining the basics.
+2. **Do your research:** Show that you've attempted to solve it yourself before asking.
+3. **Ask yes/no questions:** This prevents long, irrelevant tangents and quickly identifies exactly where your mental model is broken.
+4. **Admit what you don't know:** Don't pretend to understand if you are lost.
+5. **Don't accept incomplete answers:** Do not walk away just to "stop bothering them" if you still don't understand the solution.
+
+---
+
+## AI Etiquette in Engineering
+
+The norms around Large Language Models (LLMs) are still forming, but standard professional etiquette applies:
+
+* **Always Disclose:** If you used an LLM to write code, tell your team. It sets the expectation that the code requires thorough human review because you might not fully understand every line.
+* **Be Specific:** Say *"I used AI to generate the unit tests and frontend UI, but wrote the backend myself"* rather than a vague *"I used AI."*
+* **Respect Data Privacy:** Follow company/project guidelines strictly. Sending proprietary, financial, or healthcare code to a cloud-based LLM is often a severe compliance violation.
+* **AI Code Reviews lack context:** LLMs do "context-free" reviews. They can spot syntax errors, but they cannot tell you if a change violates the project's long-term architecture or backwards-compatibility policies.
+* **Acknowledge the Trade-off:** Using AI to write code gets the job done faster, but you objectively learn less than if you wrestled with the logic yourself. Make that trade-off intentionally.
