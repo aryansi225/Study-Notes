@@ -709,3 +709,135 @@ Once your artifact is built, it needs a home so others can download it:
 * **Container Images:** Pushed to a **Container Registry** (like Docker Hub or GitHub Container Registry) using `docker push`.
 
 As long as you and your collaborators have access to the same registry or GitHub repository, anyone can seamlessly download the exact environment and execute the code.
+
+# Topic 7: Agentic Coding
+
+---
+
+## The Paradigm Shift: Assistants vs. Agents
+
+Traditional AI development tools (like GitHub Copilot autocomplete or inline chat) operate on a **next-token prediction** form factor: you write code, the model predicts the immediate continuation.
+
+**Coding Agents** (e.g., Claude Code, Aider, Cursor) operate on an **action-oriented** form factor. They are conversational AI models coupled with a local execution harness that grants them agency to:
+
+* Read and navigate the local filesystem.
+* Mutate state (write files, generate `git` diffs).
+* Execute shell commands (run linters, execute unit tests, trigger compilers).
+
+---
+
+## Theoretical Foundations: Under the Hood
+
+To use agents effectively, you must understand their hard systemic constraints. A coding agent is partitioned into two distinct layers: **The Language Model** and **The Agent Harness**.
+
+### The Language Model ($\text{LLM}$)
+
+Fundamentally, the underlying model is a parameterized conditional probability distribution:
+
+$$\pi_\theta(y \mid x)$$
+
+Where $x$ represents the input prompt (sequence of input tokens) and $y$ represents the generated completion. When an agent "thinks", the system is simply drawing a sample $\hat{y} \sim \pi_\theta(y \mid x)$.
+
+* **The Context Window Constraint:** The combined length of the prompt and the sampled output is strictly bounded: $|x| + |y| \le K$.
+* **Multi-Turn Chat:** To maintain conversational memory inside a stateless mathematical function, the harness reconstructs $x$ on every single turn by concatenating the entire historical log of inputs, outputs, and system markers.
+
+### The Agent Harness (Scaffolding)
+
+The harness is the deterministic software loop wrapping the probabilistic LLM. It acts as an interpreter for the model's special output tokens.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Harness as Agent Harness
+    participant LLM as Language Model (pi_theta)
+    participant OS as Local Filesystem / Shell
+
+    User->>Harness: Natural language prompt (x_0)
+    
+    loop Autonomous Execution Loop
+        Harness->>LLM: Sample completion \hat{y} given context (x_n)
+        LLM-->>Harness: Emits Tool Request (e.g., `run_cmd: mypy dl.py`)
+        Harness->>OS: Dispatch tool execution
+        OS-->>Harness: Return raw stdout / stderr
+        Harness->>Harness: Append results to history (x_{n+1})
+    end
+
+    LLM-->>Harness: Emits final conversational text
+    Harness-->>User: Return control back to terminal
+
+```
+
+When the LLM outputs a string formatted as a tool call (e.g., `call: read_file("dl.py")`), the harness captures it, executes the OS-level request, takes the resulting text, pastes it to the bottom of the prompt payload $x$, and forces the LLM to sample a new completion.
+
+---
+
+## Core Software Engineering Workflows
+
+| Workflow | Operational Pattern | Pragmatic Advice |
+| --- | --- | --- |
+| **Test-Driven Bug Fixing** | Write a failing unit test manually $\rightarrow$ Point the agent to the execution command $\rightarrow$ Let it loop. | Always force the agent to run the test suite *before* letting it mark the task as "Completed". |
+| **Natural Language Shell** | `agent "use ag to find python files with renamed imports, ignore /lib"` | Use this to bypass memorizing arcane Bash flags or complex RegEx syntax. |
+| **Semantic Refactoring** | Request a stylistic or architectural shift (e.g., *"Convert side-notes to Tufte CSS style"*). | Instruct the agent explicitly: *"Maintain strict semantic equivalence before and after the diff."* |
+| **Codebase Onboarding** | Open agent at repository root $\rightarrow$ *"Explain the entry point and data flow of this repo."* | Invaluable for entering legacy codebases or starting a new lab UROP. |
+
+---
+
+## 4. Advanced Architecture & Context Optimization
+
+As projects scale, dumping an entire codebase into an LLM causes **context pollution** (token degradation). Advanced usage relies on strict context budgeting.
+
+### Parallelization via Git Worktrees
+
+Running two agent instances in the same directory results in race conditions and corrupted file writes. To solve bugs in parallel with feature development, isolate the agents at the filesystem level:
+
+```bash
+# Create an entirely isolated filesystem checkout tied to a new branch
+git worktree add ../repo-feature-B feature-branch-B
+
+```
+
+Point Agent 1 at `./repo` and Agent 2 at `../repo-feature-B`. Merge the branches via standard Git flows when both agents resolve their tasks.
+
+### Interoperability: Model Context Protocol (MCP)
+
+MCP is an open standard allowing the local Agent Harness to talk to secure, remote data sources. Instead of copy-pasting specs, an MCP connector allows commands like:
+
+> *"Read the product spec at `notion://...` and implement Phase 1 in the codebase."*
+
+```mermaid
+graph LR
+    A[Agent Harness] <-->|Model Context Protocol| B((Notion / Jira))
+    A <-->|Model Context Protocol| C[(Postgres DB)]
+    A <-->|Model Context Protocol| D[Figma API]
+
+```
+
+### Context Management Strategies
+
+* **Compaction:** When $|x|$ approaches the context ceiling $K$, the harness passes the conversation prefix to a secondary, cheaper LLM to generate a dense summary block, swapping out $40,000$ raw chat tokens for a $500$-token distillation.
+* **Stack Popping (Rewind):** If an agent goes down a bad logical path, never use natural language to say *"No, go back"*. This leaves the garbage attempts inside the context window. Use the harness's `/rewind` or `pop` command to drop the bad tokens from history entirely.
+* **The `llms.txt` Standard:** When instructing an agent to read web documentation for a new library, passing raw `index.html` wastes thousands of tokens on CSS, navigation wrappers, and SVG paths. Forward-thinking libraries host an `/llms.txt` file—a stripped, high-density Markdown file explicitly structured for inference engines.
+* **Pre-Prompts (`agent.md` / `claude.md`):** A project-root Markdown file injected automatically into the prefix of $x$ upon boot. Store standard repo rules here:
+```markdown
+# Project Rules
+- Strict typing required. Run `mypy .` before resolving.
+- Do not edit `/legacy_bindings`.
+- Use `pytest -k unit` for testing.
+
+```
+
+* **Skills (Indirection):** To keep `agent.md` small, use a Table of Contents pattern. Put a lightweight index in the root file (*"For DB migration rules, read `docs/db.md`"*). The agent will autonomously trigger a `read_file` tool call on `docs/db.md` *only* when the user asks for a database change.
+
+### Sub-Agents
+
+To execute a heavy sub-task (e.g., fetching a $100\text{MB}$ web payload to extract 3 URLs), the primary agent can spawn an ephemeral **Sub-Agent** with a blank context window. The sub-agent does the heavy lifting, terminates, and returns *only* the final distilled answer back to the parent agent, keeping the parent's working memory clean.
+
+---
+
+## The Pragmatist’s Guardrails
+
+1. **The Asymmetry of Verification:** Writing code takes time $T$. Verifying subtle, almost-correct AI code takes time $2T$. For mathematically complex or mission-critical core logic, **writing it yourself is practically faster** than debugging a hallucinated edge case.
+2. **The "Yes-Man" Trap:** LLMs are fine-tuned to be agreeable. If you look at broken code and say *"Is this right?"*, it will frequently reply: *"You are entirely right, my apologies, here is the fix:"* and hand you the exact same broken logic rearranged.
+3. **The Debugging Doom Spiral:** If an agent fails a unit test 3 times in a row, **kill the process**. Left unchecked, it will begin deleting valid core logic or rewriting your unit tests to force a "Green" output.
+4. **Zero-Trust Tooling:** **Never** configure an agent to run Bash commands autonomously. Set your harness to *Auto-Approve* for file edits (which can be reverted via `git checkout`), but require *Manual Keystroke Approval* for any command that touches the shell.
