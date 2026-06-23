@@ -956,3 +956,117 @@ The norms around Large Language Models (LLMs) are still forming, but standard pr
 * **Respect Data Privacy:** Follow company/project guidelines strictly. Sending proprietary, financial, or healthcare code to a cloud-based LLM is often a severe compliance violation.
 * **AI Code Reviews lack context:** LLMs do "context-free" reviews. They can spot syntax errors, but they cannot tell you if a change violates the project's long-term architecture or backwards-compatibility policies.
 * **Acknowledge the Trade-off:** Using AI to write code gets the job done faster, but you objectively learn less than if you wrestled with the logic yourself. Make that trade-off intentionally.
+
+# Topice 9: Code Quality & Regular Expressions
+---
+
+## Code Formatting
+
+Code auto-formatters automatically prettify the surface syntax of your programs. By offloading this to a tool, developers stop debating stylistic choices ("bike-shedding") and focus on actual logic.
+
+* **Functionality:** Formatters can run in a "check-only" mode (warning you if code isn't compliant) or "fix" mode (automatically modifying files).
+* **EditorConfig:** A standard file format (`.editorconfig`) and set of IDE plugins that maintain consistent coding styles (like tabs vs. spaces, indentation size) across different editors used by different team members.
+
+## Linting (Static Analysis)
+
+While formatters look at syntax, **linters** perform lightweight *semantic* analysis on your code without executing it. They search for anti-patterns, security risks, and potential bugs.
+
+* **Features:** Good linters (like Ruff for Python) come with hundreds of rules, explain *why* a pattern is bad, and offer safe auto-fixes (e.g., sorting imports, removing unused variables).
+* **Suppressing rules:** Static analysis isn't perfect. If a linter flags a false positive or intentional choice, you can bypass it using inline comments (e.g., `noqa: F403` in Python).
+* **Semantic Grep (`semgrep`):** Unlike standard `grep`, which searches text character-by-character, `semgrep` parses the actual *syntax tree* of the language. It can find code patterns regardless of line breaks, whitespace, or variable names.
+
+---
+
+## Software Testing
+
+Testing increases confidence that your code behaves as expected and prevents regressions as the codebase evolves.
+
+* **Testing Levels:**
+* **Unit Tests:** Testing individual, isolated functions.
+* **Integration Tests:** Testing how different modules or services interact.
+* **Functional/End-to-End Tests:** Testing if the software satisfies overall user requirements.
+
+
+* **Test-Driven Development (TDD):** A methodology where you write the failing tests *first* (acting as a functional specification), and then write the code to make them pass.
+* **Code Coverage:** A metric indicating what percentage of your source code's lines are executed during your test suite. While 100% coverage is a good goal, it does not guarantee your tests are actually meaningful.
+* **Mocking & API Testing:** To test code that relies on external APIs (like YouTube or OpenAI) without hitting rate limits or requiring the internet, you can use "mocking" to intercept calls and return fake data, or use libraries to record and replay actual network traffic.
+
+### Property-Based Testing
+
+Instead of writing discrete tests with concrete inputs (e.g., `assert fizzbuzz(3) == "fizz"`), property-based testing uses frameworks (like Hypothesis in Python or QuickCheck in Haskell) to define mathematical properties your function should always satisfy.
+
+* *Example:* If padding a string `s` to length `i`, the property is that the final length must be *at least* `i`, and the original string `s` must be contained within the result.
+* The framework automatically generates hundreds of randomized inputs to try and break these rules, providing the exact concrete counterexample if it finds a failure.
+
+---
+
+## Pre-Commit Hooks
+
+Pre-commit hooks are scripts configured to run automatically right before you execute `git commit`.
+
+* **Why use them?** They enforce code quality locally. If you try to commit code that fails formatting or linting, the hook aborts the commit and forces you to fix the errors first. This guarantees only compliant code makes it into the repository history.
+
+---
+
+## Continuous Integration (CI)
+
+Continuous Integration (like GitHub Actions) moves code quality checks to the cloud. Whenever an event occurs (a push, a Pull Request, or a scheduled time), the CI server spins up an environment to verify your code.
+
+```mermaid
+flowchart LR
+    Dev[Developer Pushes Code / PR] --> Git[GitHub/GitLab]
+    Git --> Trigger[Trigger CI Pipeline]
+    Trigger --> Fmt[Format Check]
+    Trigger --> Lint[Linter]
+    Trigger --> Type[Type Checker]
+    Trigger --> Matrix[Test Matrix\nWin/Mac/Linux\nPy 3.10/3.11/3.12]
+    
+    Fmt & Lint & Type & Matrix --> Eval{All Checks\nPass?}
+    Eval -- Yes --> Merge[Allow Merge / Deploy]
+    Eval -- No --> Block[Block Merge & Alert]
+
+```
+
+* **Test Matrices:** CI allows you to run your tests in parallel across a Cartesian product of variables (e.g., testing your library on Mac, Windows, and Linux simultaneously across 4 different versions of Python).
+* **Continuous Deployment (CD):** Once CI passes, CD can automatically compile binaries, publish packages, or deploy web apps (e.g., GitHub Pages).
+
+---
+
+## Command Runners
+
+Typing out long strings of arguments (like `mypy --strict --install-types --non-interactive source tests`) repeatedly is tedious. **Command Runners** (like `just` or native tools like `hatch` / `make`) allow you to map complex shell invocations to short aliases (e.g., `just typecheck`).
+
+---
+
+## Regular Expressions (Regex)
+
+Regex is a compact, powerful mini-language used to describe sets of strings or patterns. It is universally used in IDE search/replace, command-line tools (`grep`, `ag`), and within programming languages for lightweight parsing.
+
+### Core Syntax
+
+* **Literals:** `abc` matches the exact string "abc".
+* **Character Classes (`[]`):** `[abc]` matches "a", "b", or "c".
+* **Negation (`^` inside brackets):** `[^abc]` matches any character *except* a, b, or c.
+* **Alternation (`|`):** `hello|world` matches either "hello" or "world".
+* **Wildcards:** `.` matches absolutely any single character.
+
+### Useful Escape Sequences
+
+* `\d` : Matches any digit.
+* `\w` : Matches any word character (letters, numbers, underscores).
+* `\b` : Matches a word boundary (useful to match "def" but not the "def" inside "define").
+
+### Anchors and Multipliers
+
+* `^` : Start of the line.
+* `$` : End of the line.
+* `+` : Matches one or more of the preceding element (e.g., `\d+` matches "5" or "500").
+
+### Capturing Groups
+
+Parentheses `()` not only group terms for logic but also "capture" the matched text so you can refer back to it.
+
+* *Search & Replace:* If you search `(\d+)` and replace with `\1\1`, you are telling the engine to replace the matched digits with two copies of itself (e.g., turning "15" into "1515").
+* *Parsing:* In Python, `re.match(r"(\d{4})-(\d{2})", date)` lets you extract the year and month into separate variables using `.group(1)` and `.group(2)`.
+
+*(Note: Regex is strictly for regular languages. It is not mathematically powerful enough to parse recursive structures like HTML—use a dedicated parser for those tasks).*
