@@ -259,9 +259,8 @@ stateDiagram-v2
     Insert --> Normal : press ESC
     Normal --> Visual : press v, V, Ctrl+V
     Visual --> Normal : press ESC
-    Normal --> Command : press :
+    Normal --> Command : press colon
     Command --> Normal : press Enter / ESC
-
 ```
 
 * **Normal Mode (Default):** For navigating the file and manipulating text. You cannot type standard text here.
