@@ -1,6 +1,6 @@
 # Lecture Notes: The Missing Semester of Your CS Education
 
-### Topic: The Shell & Command Line Environment
+# Topic 1: The Shell & Command Line Environment
 
 These notes condense the foundational concepts of navigating and utilizing the command-line interface, specifically focusing on the Bash shell.
 
@@ -117,7 +117,7 @@ You can save shell commands into a text file to create reproducible scripts. Bas
 4. Execute it explicitly from the current directory using `./script.sh`.
 
 
-### Topic: The Command Line Environment
+# Topic 2: The Command Line Environment
 
 These notes summarize the core concepts of the command line environment, focusing on how programs interact, how to operate on remote machines, and how to customize your workspace.
 
@@ -226,7 +226,7 @@ The shell is highly customizable, though setup varies between operating systems 
 * **Dotfiles:** It is best practice to store your configuration files in a version-controlled folder (like a Git repository) and use "symlinks" to point your operating system to them. This makes setting up a new computer frictionless.
 * **Plugins:** Frameworks and independent plugins can add syntax highlighting, auto-completion, rich Git integrations in your prompt (`PS1`), and fuzzy-finding for your command history (e.g., `fzf` mapped to `Ctrl+R`).
 
-### Topic: Development Environment and Tools
+# Topic 3: Development Environment and Tools
 
 These notes summarize the concepts, tools, and workflows of a modern software development environment, with a deep dive into Vim, Language Servers, and AI-powered coding tools.
 
@@ -371,13 +371,13 @@ Large Language Models (LLMs) have fundamentally changed how code is written. Too
 * **Find the Right Abstraction Level:** AI tools excel at boilerplate and well-documented algorithmic tasks. If a task is too complex, the AI will fail. Learn to gauge what the AI is capable of handling, and delegate accordingly.
 * **Privacy Note:** Cloud-based AI tools send your code to external servers. For highly sensitive code, check the privacy settings of your tool (e.g., disabling data retention) or look into local models, though local models currently offer less capability.
 
-### Topic: Debugging and Profiling
+# Topic 4: Debugging and Profiling
 
 Computers execute exact instructions rather than our intended logic, making debugging and profiling essential skills. Below are structured notes on the core concepts, tools, and methodologies for inspecting, fixing, and optimizing code.
 
 ---
 
-## 1. Debugging Methodologies & Tools
+## Debugging Methodologies & Tools
 
 The goal of debugging is to close the gap between what you intended the computer to do and what it actually did.
 
@@ -442,7 +442,7 @@ To inspect traffic entering or leaving a system without modifying code:
 
 ---
 
-## 2. Profiling Performance
+## Profiling Performance
 
 Profiling applies debugging concepts to runtime speed and resource utilization. To optimize code, you must measure it accurately.
 
@@ -482,3 +482,114 @@ Raw profiling data is difficult to parse. Visualizations highlight the exact lin
 * **perf:** A sampling profiler that interrupts the CPU at high frequencies to record the call stack. Used via `perf record` and `perf report`.
 * **Flame Graphs:** SVG visualizations mapping stack traces to execution time. Wider bars represent functions consuming more CPU cycles.
 * **Data Plotting Tools:** Tools like `gnuplot` (terminal-based), `matplotlib` (Python), and `ggplot2` (R) help plot algorithmic scaling against input sizes.
+
+
+# Topic 5: Version Control (Git)
+
+Version control systems (VCS) track changes to source code (or any files) over time, maintain a history of those changes, and facilitate collaboration. While Git is the de-facto standard today, it has a reputation for a confusing, "leaky" interface.
+
+To use Git effectively without blindly memorizing commands or resorting to deleting your project when things go wrong, it is essential to understand it **bottom-up**, starting with its data model.
+
+---
+
+## Git's Data Model
+
+Git models history as a collection of files and folders at specific points in time. Instead of storing a sequence of changes (deltas), Git stores a sequence of **snapshots**.
+
+### Core Entities
+
+* **Blob (File):** An array of bytes. It represents the contents of a file.
+* **Tree (Directory):** A map linking names to other trees or blobs.
+* **Snapshot:** The top-level tree being tracked.
+
+### Commits and History
+
+A **commit** is a snapshot along with some metadata (author, message, timestamp) and pointers to its **parents** (the commits that came immediately before it).
+
+Because commits can have multiple parents (in the case of a merge) or multiple children (in the case of branching), Git history is modeled as a **Directed Acyclic Graph (DAG)**.
+
+```mermaid
+graph TD
+    A((Commit 1)) --> B((Commit 2))
+    B --> C((Commit 3))
+    B --> D((Commit 4: Feature))
+    C --> E((Commit 5: Merge))
+    D --> E
+
+```
+
+### The Object Store
+
+Git unifies blobs, trees, and commits under the concept of an **Object**.
+
+* All objects are content-addressed by their **SHA-1 hash** (a 40-character hexadecimal string).
+* The object store is **immutable**. You can add new objects, but you cannot alter existing ones. If you change a file, its hash changes, creating a brand new object.
+
+---
+
+## References and `HEAD`
+
+Because 40-character SHA-1 hashes are unreadable to humans, Git uses **References (Refs)**.
+
+* **References are mutable.** They are human-readable pointers (like `main`, `master`, or `bugfix`) that point to specific commit hashes.
+* **Branches** in Git are simply references. They do not contain their own isolated history; they are just lightweight, movable pointers to a commit.
+* **`HEAD`** is a special reference that points to the commit (or branch) you are currently looking at in your working directory.
+* *Detached HEAD state:* Occurs when `HEAD` points directly to a commit hash instead of a branch name. If you make commits here, they won't belong to any branch and will eventually be garbage collected if you switch away.
+
+
+
+---
+
+## The Staging Area
+
+Instead of blindly taking a snapshot of everything in your directory at once, Git gives you fine-grained control over what goes into your next commit via the **Staging Area**.
+
+```mermaid
+flowchart LR
+    WD[Working Directory] -- "git add" --> SA[Staging Area]
+    SA -- "git commit" --> repo[Git Repository / History]
+    repo -- "git checkout/switch" --> WD
+
+```
+
+This allows you to work on multiple different things locally, but group related changes into clean, atomic commits.
+
+---
+
+## Core Command Line Interface
+
+Understanding the data model clarifies what the commands are actually doing under the hood.
+
+| Command | Action | Data Model Impact |
+| --- | --- | --- |
+| `git init` | Initializes a new repository. | Creates the hidden `.git` folder (empty object store and refs). |
+| `git status` | Shows working directory status. | Compares working directory, staging area, and `HEAD`. |
+| `git add <file>` | Stages a file. | Creates a blob object for the file and updates the staging area. |
+| `git commit` | Commits staged changes. | Creates a new tree and commit object; updates the current branch ref to point to it. |
+| `git log` | Shows commit history. | Traverses the DAG backwards from `HEAD`. Use `--graph` or `--all` for better views. |
+| `git branch <name>` | Creates a branch. | Creates a new reference pointing to the current commit. |
+| `git switch <name>` | Switches branches. | Moves `HEAD` to the specified branch and updates the working directory. |
+| `git merge <name>` | Merges a branch into current. | Creates a new merge commit (with 2 parents) combining the histories. |
+
+*Note: You can inspect raw Git objects by their SHA-1 hash using `git cat-file -t <hash>` (to see type) and `git cat-file -p <hash>` (to see contents).*
+
+---
+
+## Collaboration and Remotes
+
+Git is purely a local, distributed version control tool. **GitHub** is a third-party hosting service for Git repositories.
+
+A **remote** is simply another copy of your Git repository hosted elsewhere (e.g., on GitHub, GitLab, or a co-worker's machine). You collaborate by synchronizing your local DAG with the remote DAG.
+
+* `git clone <url>`: Downloads a remote repository and sets it up locally.
+* `git remote add <name> <url>`: Connects your local repository to a remote.
+* `git push <remote> <branch>`: Sends your local commits and references to the remote object store.
+* `git fetch`: Downloads objects and refs from the remote, but *does not* touch your working directory.
+* `git pull`: Fetches data from the remote and immediately attempts to merge it into your local working branch.
+
+### Diffing
+
+While Git stores pure snapshots, it can easily compute the differences between them on the fly:
+
+* `git diff`: Shows what has changed.
+* `git log -p`: Shows the commit history along with the inline diffs for every single commit.
