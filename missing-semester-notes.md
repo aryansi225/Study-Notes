@@ -593,3 +593,119 @@ While Git stores pure snapshots, it can easily compute the differences between t
 
 * `git diff`: Shows what has changed.
 * `git log -p`: Shows the commit history along with the inline diffs for every single commit.
+
+# Topic 6: Packaging and Shipping Code
+
+Getting code to run on your own computer is only half the battle. Shipping code means ensuring that your application can run reliably on someone else's machine. These notes cover the mechanisms for isolating dependencies, building artifacts, and deploying robust applications.
+
+---
+
+## Dependencies & Environments
+
+Code rarely exists in a vacuum; it relies on implicit dependencies like the programming language runtime, third-party libraries, and operating system features.
+
+### Dependency Management
+
+When you require a third-party library (e.g., `requests` in Python), you must fetch it from a central repository (like the Python Package Index, or PyPI). Package managers like `pip` or the newer, significantly faster `uv` handle this by downloading the requested library *and recursively resolving all of its dependencies*.
+
+### Dependency Hell and Virtual Environments
+
+If Project A requires `numpy > 2.0` and Project B requires `numpy < 2.0`, installing both globally creates an unresolvable conflict.
+
+**Solution:** Use isolated environments.
+A virtual environment (e.g., using `python -m venv my-env` or `uv venv`) creates an isolated folder containing a replica of the language runtime and its binaries. Activating it updates your shell's `PATH` to prioritize this isolated folder, ensuring project dependencies do not cross-contaminate.
+
+---
+
+## Artifacts & Packaging
+
+An **artifact** is the final object that another user downloads and runs.
+
+### Defining the Package
+
+To make raw source code installable, you must define the "rules of the game." In modern Python, this is done using a `pyproject.toml` file, which specifies:
+
+* Package metadata (name, version, description).
+* Dependency constraints.
+* Build systems.
+* CLI entry points (e.g., creating a terminal command that maps to a specific Python function).
+
+### Source Code vs. Pre-Built Binaries
+
+* **Source Code:** Raw instructions. Requires the end-user to have the entire build toolchain installed to run it.
+* **Pre-Built Binaries (Artifacts):** Compiled programs ready for execution. Because they are pre-built, you must distribute different versions mapped to specific **Operating Systems** (Linux, Windows, macOS) and **CPU Architectures** (x86_64, ARM/Apple Silicon).
+* **Wheels:** In Python, a pre-built artifact is distributed as a `.whl` (Wheel) file, which is essentially a structured ZIP folder containing the code and metadata.
+
+---
+
+## Releases, Versioning & Reproducibility
+
+To communicate compatibility to users, developers rely on **Semantic Versioning (SemVer)**, which uses three numbers: `Major.Minor.Patch` (e.g., `2.1.4`).
+
+| Segment | Meaning | Example Scenario |
+| --- | --- | --- |
+| **Major** | Incompatible API changes | Renaming a core function. Old code *will* break. |
+| **Minor** | New features, backward compatible | Adding a new endpoint. Old code still works. |
+| **Patch** | Bug fixes, backward compatible | Fixing a security flaw. Old code still works. |
+
+### Libraries vs. Applications
+
+Your approach to versioning depends entirely on what you are building:
+
+```mermaid
+graph TD
+    A[What are you building?] -->|A Library| B[Use Wide Version Ranges]
+    A -->|An Application| C[Use Exact Pinned Versions]
+    B --> D[Prevents conflicts when users install your library alongside others.]
+    C --> E[Ensures 100% reproducible builds via Lockfiles e.g., uv.lock.]
+
+```
+
+*Note: For absolute system-level reproducibility (including C-compilers and OS libraries), tools like **Nix** are used to manage every bit of variability on a computer.*
+
+---
+
+## Virtual Machines & Containers
+
+When your code depends on external system features (like a specific CUDA version for GPU processing), language-level packaging (like Python's) is insufficient. You need to package the environment itself.
+
+### The Evolution of Isolation
+
+1. **Virtual Machines (VMs):** Ship an entire virtualized hardware stack and Operating System. Highly isolated, but massive overhead in storage and compute.
+2. **Containers (Docker):** Isolate the application layer but reuse the host machine's OS kernel. Extremely lightweight and fast.
+
+### Dockerfiles
+
+A `Dockerfile` is a specialized script used to build a container image.
+
+* Docker builds images in **layers**. Each command (`RUN`, `COPY`) creates a new cached layer.
+* **Optimization:** To keep image sizes small (e.g., dropping from 2GB to 500MB), developers chain commands together (`apt update && apt install ... && rm -rf ...`) and disable caches when installing dependencies inside the final image.
+
+```mermaid
+flowchart LR
+    DF[Dockerfile] -- "docker build" --> DI[Docker Image]
+    DI -- "docker run" --> C[Running Container]
+    DI -- "docker push" --> Reg[Container Registry]
+
+```
+
+---
+
+## Services & Orchestration
+
+Modern applications are rarely just one isolated script; they often require a network of services (e.g., a Web App communicating with a PostgreSQL database).
+
+* **Docker Compose:** A declarative YAML file used to orchestrate multi-container applications. It defines the required images, network ports, environment variables, and start-up dependencies (e.g., "Do not start the Web App until the Database is running").
+* **Configuration:** Code should be written so it can deploy anywhere without modifying the source code. Use **environment variables** and CLI flags to handle configuration changes.
+* **Systemd:** A Linux system and service manager used to orchestrate *when* your application starts. You can configure systemd to automatically trigger `docker compose up` if the physical server reboots.
+
+---
+
+## Publishing
+
+Once your artifact is built, it needs a home so others can download it:
+
+* **Python Packages:** Uploaded to **PyPI** (or TestPyPI for practice) using tools like `uv publish`.
+* **Container Images:** Pushed to a **Container Registry** (like Docker Hub or GitHub Container Registry) using `docker push`.
+
+As long as you and your collaborators have access to the same registry or GitHub repository, anyone can seamlessly download the exact environment and execute the code.
