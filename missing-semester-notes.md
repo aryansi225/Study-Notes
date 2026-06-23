@@ -370,3 +370,115 @@ Large Language Models (LLMs) have fundamentally changed how code is written. Too
 * **Review Everything:** LLMs are probabilistic token-predictors, not logic engines. They will confidently produce code that looks correct but contains subtle bugs or hallucinates non-existent methods.
 * **Find the Right Abstraction Level:** AI tools excel at boilerplate and well-documented algorithmic tasks. If a task is too complex, the AI will fail. Learn to gauge what the AI is capable of handling, and delegate accordingly.
 * **Privacy Note:** Cloud-based AI tools send your code to external servers. For highly sensitive code, check the privacy settings of your tool (e.g., disabling data retention) or look into local models, though local models currently offer less capability.
+
+### Topic: Debugging and Profiling
+
+Computers execute exact instructions rather than our intended logic, making debugging and profiling essential skills. Below are structured notes on the core concepts, tools, and methodologies for inspecting, fixing, and optimizing code.
+
+---
+
+## 1. Debugging Methodologies & Tools
+
+The goal of debugging is to close the gap between what you intended the computer to do and what it actually did.
+
+### Logging and Print Debugging
+
+Print debugging is highly effective but requires restarting the process from scratch. Logging provides a principled, persistent approach to outputting system state.
+
+**Types of Logging:**
+
+* **Unstructured:** Plain text logs describing program flow.
+* **Structured:** JSON blobs or metrics that can be parsed by shell tools.
+
+| Log Level | Purpose |
+| --- | --- |
+| **TRACE/DEBUG** | Verbose execution details, typically used only during active development. |
+| **INFO** | Normal operational events and state changes. |
+| **WARN** | Potential issues that do not immediately halt the program. |
+| **ERROR/CRITICAL** | Severe failures requiring immediate attention. |
+
+### Interactive Debuggers
+
+General-purpose debuggers allow you to pause execution, introspect memory, and step through code interactively.
+
+* **GDB / LLDB:** Used primarily for compiled languages (C, C++, Rust).
+* **PDB:** Language-specific debugger for Python.
+
+### Record-Replay Debugging (RR)
+
+Traditional debuggers run forward; if you miss the origin of a bug, you must restart. Tools like `rr` (Record and Replay) record a program's entire execution, including system interactions, allowing you to step *backwards* in time.
+
+```mermaid
+graph TD
+    Start[Program Starts] --> Exec[Execution Recorded by RR]
+    Exec --> Bug[Bug Manifests / Breakpoint Hit]
+    Bug -->|Standard Debugger| Restart[Must restart to find root cause]
+    Bug -->|RR| Reverse[Reverse-Continue: Step backwards to exact memory mutation]
+    Reverse --> RootCause[Identify Root Cause]
+
+```
+
+**Note on Heisenbugs:** Bugs that disappear or change behavior when observed (e.g., due to timing changes from print statements or deterministic schedulers in `rr`).
+
+### System Call Tracing
+
+When you need to understand what a black-box program is doing, trace its interactions with the operating system kernel.
+
+* **strace:** Logs system calls (e.g., file opens, network reads). Useful flags include `-p` (attach to process ID), `-f` (follow child processes), and `-e` (filter by call type, like `%file`).
+* **eBPF & bpftrace:** Advanced kernel-level tracing. Allows you to run sandbox programs in the Linux kernel to safely capture metrics (e.g., I/O latency distributions via `biolatency` or file access via `opensnoop`).
+
+### Network Debugging
+
+To inspect traffic entering or leaving a system without modifying code:
+
+* **tcpdump:** Captures raw IP packets traversing a specific network interface.
+* **Wireshark:** Analyzes packet contents with protocol-specific plugins (e.g., parsing MySQL queries over TCP).
+* **mitmproxy:** Intercepts and decrypts HTTPS traffic by acting as a proxy.
+
+### Sanitizers and CPU Emulators
+
+* **Sanitizers:** Compiler extensions (e.g., `-fsanitize=address` in GCC/Clang) that inject checks to catch memory corruption or buffer overflows at runtime.
+* **Valgrind:** A CPU emulator that interprets instructions directly. It detects memory mismanagement without recompiling the program but significantly slows down execution.
+
+---
+
+## 2. Profiling Performance
+
+Profiling applies debugging concepts to runtime speed and resource utilization. To optimize code, you must measure it accurately.
+
+### Timing Execution
+
+The simplest profiling technique uses the shell `time` command.
+
+| Metric | Definition |
+| --- | --- |
+| **Real Time** | Wall-clock time from start to finish. |
+| **User Time** | CPU time spent executing user-space code. |
+| **Sys Time** | CPU time spent executing kernel-space code. |
+
+*Wait Time (I/O or Network)* is the difference between Real Time and total CPU Time (User + Sys). For statistical benchmarking of competing programs, use **Hyperfine**.
+
+```mermaid
+pie title "Understanding Execution Metrics (Example)"
+    "User Time (CPU Code)" : 45
+    "Sys Time (Kernel Calls)" : 15
+    "Wait Time (I/O, Network Idle)" : 40
+
+```
+
+### Resource Monitoring
+
+Before optimizing code, identify the hardware bottleneck using resource monitors.
+
+* **CPU & Memory:** `htop`, `btop`, `free`
+* **Disk I/O:** `iotop`
+* **Network:** `nethogs`, `ss`
+* **Open Files:** `lsof`
+
+### Visualizing Performance Data
+
+Raw profiling data is difficult to parse. Visualizations highlight the exact lines of code where execution time is concentrated.
+
+* **perf:** A sampling profiler that interrupts the CPU at high frequencies to record the call stack. Used via `perf record` and `perf report`.
+* **Flame Graphs:** SVG visualizations mapping stack traces to execution time. Wider bars represent functions consuming more CPU cycles.
+* **Data Plotting Tools:** Tools like `gnuplot` (terminal-based), `matplotlib` (Python), and `ggplot2` (R) help plot algorithmic scaling against input sizes.
